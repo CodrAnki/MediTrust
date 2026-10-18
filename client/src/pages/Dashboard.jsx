@@ -66,6 +66,7 @@ export default function Dashboard() {
   const cards = [
     { label: 'Total Scans', value: stats.totalScans, icon: LayoutDashboard, color: 'text-[var(--color-primary)]' },
     { label: 'Verified', value: stats.verified, icon: ShieldCheck, color: 'text-[#0F7B3B]' },
+    { label: 'Needs Review', value: stats.needsReview ?? 0, icon: HelpCircle, color: 'text-[#9A5F08]' },
     { label: 'Suspicious', value: stats.suspicious, icon: AlertTriangle, color: 'text-[#9A5F08]' },
     { label: 'High Risk', value: stats.highRisk, icon: ShieldAlert, color: 'text-[#B91C1C]' },
     { label: 'Unverified', value: stats.unverified, icon: HelpCircle, color: 'text-[var(--color-ink-faint)]' },
@@ -91,7 +92,7 @@ export default function Dashboard() {
         </Link>
       </div>
 
-      <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {cards.map((card) => (
           <div
             key={card.label}

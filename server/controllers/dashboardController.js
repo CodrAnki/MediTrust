@@ -24,10 +24,18 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
     Scan.find({ userId: userObjectId }).sort({ createdAt: -1 }).limit(5),
   ]);
 
-  // Group the full status vocabulary into the four dashboard buckets.
+  // Keep records needing human review separate from suspicious/mismatch outcomes.
   // HIGH_CONFIDENCE is no longer counted as verified: it was awarded without a verified batch/expiry.
-  const BUCKET = { VERIFIED: 'VERIFIED', VERIFIED_AGAINST_REFERENCE: 'VERIFIED', SUSPICIOUS: 'SUSPICIOUS', NEEDS_REVIEW: 'SUSPICIOUS', MISMATCH: 'SUSPICIOUS', MISMATCH_DETECTED: 'HIGH_RISK', HIGH_RISK: 'HIGH_RISK' };
-  const statusMap = { VERIFIED: 0, SUSPICIOUS: 0, HIGH_RISK: 0, UNVERIFIED: 0 };
+  const BUCKET = {
+    VERIFIED: 'VERIFIED',
+    VERIFIED_AGAINST_REFERENCE: 'VERIFIED',
+    NEEDS_REVIEW: 'NEEDS_REVIEW',
+    SUSPICIOUS: 'SUSPICIOUS',
+    MISMATCH: 'SUSPICIOUS',
+    MISMATCH_DETECTED: 'HIGH_RISK',
+    HIGH_RISK: 'HIGH_RISK',
+  };
+  const statusMap = { VERIFIED: 0, NEEDS_REVIEW: 0, SUSPICIOUS: 0, HIGH_RISK: 0, UNVERIFIED: 0 };
   for (const row of byStatus) {
     statusMap[BUCKET[row._id] || 'UNVERIFIED'] += row.count; // unknown / not found / not detected / expired
   }
@@ -40,6 +48,7 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
   return res.status(200).json({
     totalScans,
     verified: statusMap.VERIFIED,
+    needsReview: statusMap.NEEDS_REVIEW,
     suspicious: statusMap.SUSPICIOUS,
     highRisk: statusMap.HIGH_RISK,
     unverified: statusMap.UNVERIFIED,

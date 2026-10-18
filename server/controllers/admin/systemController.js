@@ -24,7 +24,7 @@ export const dashboardStats = asyncHandler(async (req, res) => {
     Batch.countDocuments(), Scan.countDocuments(),
     Scan.aggregate([{ $group: { _id: '$verificationStatus', n: { $sum: 1 } } }]),
     Scan.aggregate([{ $group: { _id: '$riskLevel', n: { $sum: 1 } } }]),
-    Scan.aggregate([{ $match: { createdAt: { $gte: since14 } } }, { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, total: { $sum: 1 }, verified: { $sum: { $cond: [{ $in: ['$verificationStatus', ['VERIFIED', 'VERIFIED_AGAINST_REFERENCE']] }, 1, 0] } }, suspicious: { $sum: { $cond: [{ $in: ['$verificationStatus', ['SUSPICIOUS', 'MISMATCH', 'HIGH_RISK', 'NEEDS_REVIEW', 'MISMATCH_DETECTED']] }, 1, 0] } } } }, { $sort: { _id: 1 } }]),
+    Scan.aggregate([{ $match: { createdAt: { $gte: since14 } } }, { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, total: { $sum: 1 }, verified: { $sum: { $cond: [{ $in: ['$verificationStatus', ['VERIFIED', 'VERIFIED_AGAINST_REFERENCE']] }, 1, 0] } }, needsReview: { $sum: { $cond: [{ $eq: ['$verificationStatus', 'NEEDS_REVIEW'] }, 1, 0] } }, suspicious: { $sum: { $cond: [{ $in: ['$verificationStatus', ['SUSPICIOUS', 'MISMATCH', 'HIGH_RISK', 'MISMATCH_DETECTED']] }, 1, 0] } } } }, { $sort: { _id: 1 } }]),
     Scan.aggregate([{ $match: { medicineName: { $ne: 'Not Detected' } } }, { $group: { _id: '$medicineName', n: { $sum: 1 } } }, { $sort: { n: -1 } }, { $limit: 5 }]),
     Medicine.aggregate([{ $match: { createdAt: { $gte: since56 } } }, { $group: { _id: { $dateToString: { format: '%G-W%V', date: '$createdAt' } }, n: { $sum: 1 } } }, { $sort: { _id: 1 } }]),
     Medicine.find({}, 'medicineName manufacturer source createdAt').sort({ createdAt: -1 }).limit(5).lean(),
@@ -35,12 +35,13 @@ export const dashboardStats = asyncHandler(async (req, res) => {
   const status = Object.fromEntries(statusAgg.map((x) => [x._id, x.n]));
   const count = (...keys) => keys.reduce((s, k) => s + (status[k] || 0), 0);
   const trendMap = new Map(trendAgg.map((t) => [t._id, t]));
-  const trend = Array.from({ length: 14 }, (_, i) => { const d = day(new Date(Date.now() - (13 - i) * 864e5)); const t = trendMap.get(d); return { date: d.slice(5), total: t?.total || 0, verified: t?.verified || 0, suspicious: t?.suspicious || 0 }; });
+  const trend = Array.from({ length: 14 }, (_, i) => { const d = day(new Date(Date.now() - (13 - i) * 864e5)); const t = trendMap.get(d); return { date: d.slice(5), total: t?.total || 0, verified: t?.verified || 0, needsReview: t?.needsReview || 0, suspicious: t?.suspicious || 0 }; });
   return res.json({
     success: true,
     totals: { medicines, references, approvedReferences: approvedRefs, batches, verifications, users },
     verified: count('VERIFIED', 'VERIFIED_AGAINST_REFERENCE'),
-    suspicious: count('SUSPICIOUS', 'MISMATCH', 'NEEDS_REVIEW', 'HIGH_CONFIDENCE'), // HIGH_CONFIDENCE was awarded without a verified batch/expiry
+    needsReview: count('NEEDS_REVIEW'),
+    suspicious: count('SUSPICIOUS', 'MISMATCH', 'HIGH_CONFIDENCE'), // HIGH_CONFIDENCE was awarded without a verified batch/expiry
     highRisk: count('HIGH_RISK', 'MISMATCH_DETECTED'),
     unknown: count('UNKNOWN', 'UNVERIFIED', 'REFERENCE_NOT_FOUND', 'NOT_DETECTED', 'NOT_AVAILABLE', 'EXPIRED', 'INVALID_INPUT', 'PROCESSING_FAILED'),
     statusBreakdown: Object.entries(status).map(([name, value]) => ({ name, value })),

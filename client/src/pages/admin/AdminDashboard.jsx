@@ -25,10 +25,11 @@ export default function AdminDashboard() {
   return (
     <>
       <PageHeader title="Dashboard" subtitle="Live figures from the MediTrust database." />
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
         <Stat label="Medicines" value={t.medicines} /><Stat label="Reference images" value={`${t.approvedReferences} / ${t.references}`} />
         <Stat label="Batches" value={t.batches} /><Stat label="Verifications" value={t.verifications} />
-        <Stat label="Verified" value={d.verified} tone="text-[var(--color-verified)]" /><Stat label="Suspicious / mismatch" value={d.suspicious} tone="text-[var(--color-warning)]" />
+        <Stat label="Verified" value={d.verified} tone="text-[var(--color-verified)]" /><Stat label="Needs review" value={d.needsReview ?? 0} tone="text-[var(--color-warning)]" />
+        <Stat label="Suspicious / mismatch" value={d.suspicious} tone="text-[var(--color-warning)]" />
         <Stat label="High risk" value={d.highRisk} tone="text-[var(--color-danger)]" /><Stat label="Unknown / no data" value={d.unknown} />
       </div>
       <p className="mt-1.5 text-[11.5px] text-[var(--color-ink-faint)]">Reference images: approved &amp; enabled / total.</p>
@@ -36,7 +37,7 @@ export default function AdminDashboard() {
       <div className="mt-5 grid gap-4 lg:grid-cols-2">
         <Card title="Verification trend (14 days)"><Chart empty={!d.trend.some((x) => x.total)}>
           <LineChart data={d.trend}><CartesianGrid strokeDasharray="3 3" stroke="#E3ECE9" /><XAxis dataKey="date" fontSize={11} /><YAxis allowDecimals={false} fontSize={11} width={28} /><Tooltip /><Legend />
-            <Line type="monotone" dataKey="total" stroke="#0891B2" name="Total" dot={false} /><Line type="monotone" dataKey="verified" stroke="#16A34A" name="Verified" dot={false} /><Line type="monotone" dataKey="suspicious" stroke="#DC2626" name="Suspicious+" dot={false} /></LineChart></Chart></Card>
+            <Line type="monotone" dataKey="total" stroke="#0891B2" name="Total" dot={false} /><Line type="monotone" dataKey="verified" stroke="#16A34A" name="Verified" dot={false} /><Line type="monotone" dataKey="needsReview" stroke="#D97C0A" name="Needs review" dot={false} /><Line type="monotone" dataKey="suspicious" stroke="#DC2626" name="Suspicious+" dot={false} /></LineChart></Chart></Card>
         <Card title="Risk distribution"><Chart empty={!d.riskDistribution.some((x) => x.value)}>
           <PieChart><Pie data={d.riskDistribution} dataKey="value" nameKey="name" innerRadius={50} outerRadius={85} paddingAngle={2}>{d.riskDistribution.map((x) => <Cell key={x.name} fill={COLORS[x.name]} />)}</Pie><Tooltip /><Legend /></PieChart></Chart></Card>
         <Card title="Status breakdown"><Chart empty={!d.statusBreakdown.length}>
