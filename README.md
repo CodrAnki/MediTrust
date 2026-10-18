@@ -105,6 +105,10 @@ Copy `client/.env.example`. `VITE_API_URL` must point to the deployed API's `/ap
 
 ## Deployment and persistent data
 
+### Render API service
+
+The repository includes a `render.yaml` Blueprint for the backend. It sets the service root to `server/`, installs from `server/package-lock.json` using `npm ci`, starts the API with `npm start`, and checks `/api/health`. If configuring an existing Render web service manually, set **Root Directory** to `server`, **Build Command** to `npm ci`, and **Start Command** to `npm start` (not `npm build` or `npm run build`; the API has no build step). Configure the Blueprint's `MONGO_URI`, `CLIENT_URL`, and SMTP values in Render's environment settings; never put secrets in the YAML file.
+
 1. Provision MongoDB, SMTP, and HTTPS origins. Set production environment variables in the hosting provider's secret manager; do not deploy development secrets.
 2. Build the client with `npm run build` in `client/` and host `client/dist` on a static host with SPA history fallback enabled.
 3. Run `npm start` in `server/` on a persistent Node host. Configure `CLIENT_URL` with the deployed client origin and `VITE_API_URL` with the HTTPS API URL.
