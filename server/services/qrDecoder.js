@@ -216,7 +216,7 @@ function* tileCandidates(width, height) {
  * @param {{ timeBudgetMs?: number, onAttempt?: (info: object) => void }} [options]
  * @returns {Promise<{code: string|null, strategy: string|null, attempts: number, width: number|null, height: number|null, durationMs: number, timedOut: boolean, error: string|null}>}
  */
-export async function decodeQrDetailed(imagePath, { timeBudgetMs = DEFAULT_TIME_BUDGET_MS, onAttempt } = {}) {
+async function decodeQrDetailedInternal(imagePath, { timeBudgetMs = DEFAULT_TIME_BUDGET_MS, onAttempt } = {}) {
   const started = Date.now();
   const out = { code: null, strategy: null, attempts: 0, width: null, height: null, durationMs: 0, timedOut: false, error: null };
   const finish = () => { out.durationMs = Date.now() - started; return out; };
@@ -282,6 +282,22 @@ export async function decodeQrDetailed(imagePath, { timeBudgetMs = DEFAULT_TIME_
     if (out.attempts % 3 === 0) await yieldToEventLoop(); // don't starve the API while scanning
   }
   return finish();
+}
+
+
+// QR decoding is CPU-heavy (pixel transforms + jsQR). Running multiple decoders
+// concurrently on a small Render instance starves the event loop; requests can
+// spend their entire budget waiting for synchronous image work and report
+// attempts=0. Serialize decoder jobs process-wide. The budget starts when a job
+// actually begins, not while it is waiting in this queue.
+let decodeQueue = Promise.resolve();
+
+export function decodeQrDetailed(imagePath, options = {}) {
+  const run = () => decodeQrDetailedInternal(imagePath, options);
+  const result = decodeQueue.then(run, run);
+  // Keep the queue usable even if an unexpected error escapes one job.
+  decodeQueue = result.then(() => undefined, () => undefined);
+  return result;
 }
 
 /**
