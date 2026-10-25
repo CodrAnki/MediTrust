@@ -50,7 +50,7 @@ export const env = {
   mongoUri: clean(process.env.MONGO_URI),
   jwtSecret,
   jwtExpiresIn: clean(process.env.JWT_EXPIRES_IN) || '7d',
-  clientUrls: (process.env.CLIENT_URL || 'http://localhost:5173').split(',').map((s) => s.trim()).filter(Boolean),
+  clientUrls: (process.env.CLIENT_URL || 'http://localhost:5173').split(',').map((s) => s.trim().replace(/\/+$/, '')).filter(Boolean),
   get clientUrl() { return this.clientUrls[0]; },
   nodeEnv,
   isProduction,

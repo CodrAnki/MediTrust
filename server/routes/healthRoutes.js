@@ -19,4 +19,16 @@ router.get('/', (req, res) => {
   });
 });
 
+// Readiness is separate from liveness: a running process with no database
+// connection must not be advertised as ready for verification requests.
+router.get('/ready', (req, res) => {
+  const ready = mongoose.connection.readyState === 1;
+  res.status(ready ? 200 : 503).json({
+    status: ready ? 'ready' : 'not_ready',
+    service: 'mediTrust-server',
+    database: READY_STATES[mongoose.connection.readyState] ?? 'unknown',
+    time: new Date().toISOString(),
+  });
+});
+
 export default router;
