@@ -72,25 +72,33 @@ export const previewVerification = asyncHandler(async (req, res) => {
   }
 
   try {
-    const imageResults = await Promise.all(files.map(async (file, index) => {
-      const kind = index < medicineFiles.length ? 'medicine' : 'qr';
-      try {
-        const [ocr, qr] = await Promise.all([
-          kind === 'medicine' ? extractMedicineInfo(file.path) : null,
-          decodeQr(file.path),
-        ]);
-        return {
-          kind,
-          ocr,
-          qr,
-          error: kind === 'qr'
-            ? (qr.code ? null : 'No QR code could be read from this image.')
-            : ocr.status === OCR_STATUS.OK ? null : (OCR_STATUS_MESSAGES[ocr.status] || null),
-        };
-      } catch {
-        return { kind, ocr: null, qr: null, error: 'This image could not be processed.' };
-      }
-    }));
+    // Preview is for fast OCR field extraction. QR decoding is CPU-heavy and
+    // can monopolize a small Render instance long enough for the browser/proxy
+    // to report a network error. Decode only an explicitly supplied QR photo
+    // during preview; the full verification pipeline still decodes all photos.
+    const imageResults = await Promise.all([
+      ...medicineFiles.map(async (file) => {
+        try {
+          const ocr = await extractMedicineInfo(file.path);
+          return {
+            kind: 'medicine',
+            ocr,
+            qr: null,
+            error: ocr.status === OCR_STATUS.OK ? null : (OCR_STATUS_MESSAGES[ocr.status] || null),
+          };
+        } catch {
+          return { kind: 'medicine', ocr: null, qr: null, error: 'This image could not be processed.' };
+        }
+      }),
+      ...qrFiles.map(async (file) => {
+        try {
+          const qr = await decodeQr(file.path);
+          return { kind: 'qr', ocr: null, qr, error: qr.code ? null : 'No QR code could be read from this image.' };
+        } catch {
+          return { kind: 'qr', ocr: null, qr: null, error: 'This image could not be processed.' };
+        }
+      }),
+    ]);
 
     const medicineResults = imageResults.filter((result) => result.kind === 'medicine');
     if (medicineResults.every((result) => result.ocr?.status === OCR_STATUS.OCR_FAILED && !result.qr?.code)) {
