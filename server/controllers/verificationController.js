@@ -72,21 +72,43 @@ export const previewVerification = asyncHandler(async (req, res) => {
   }
 
   try {
-    // Preview is for fast OCR field extraction. QR decoding is CPU-heavy and
-    // can monopolize a small Render instance long enough for the browser/proxy
-    // to report a network error. Decode only an explicitly supplied QR photo
-    // during preview; the full verification pipeline still decodes all photos.
+    // Keep the interactive preview within typical reverse-proxy request limits.
+    // Tesseract uses a single queued worker, so OCR-ing 5 images in one preview
+    // can take several per-image timeouts back-to-back. Preview the first two
+    // medicine photos; the final verification pipeline still processes all
+    // submitted photos and must be used for the actual risk decision.
+    const previewMedicineFiles = medicineFiles.slice(0, 2);
+    const omittedMedicineCount = medicineFiles.length - previewMedicineFiles.length;
+    const startedAt = Date.now();
+    console.info('[verification:preview] started', {
+      requestId: req.id,
+      medicineImages: medicineFiles.length,
+      qrImages: qrFiles.length,
+      previewOcrImages: previewMedicineFiles.length,
+    });
+
     const imageResults = await Promise.all([
-      ...medicineFiles.map(async (file) => {
+      ...previewMedicineFiles.map(async (file) => {
+        const imageStartedAt = Date.now();
         try {
           const ocr = await extractMedicineInfo(file.path);
+          console.info('[verification:preview] OCR completed', {
+            requestId: req.id,
+            durationMs: Date.now() - imageStartedAt,
+            status: ocr?.status || 'UNKNOWN',
+          });
           return {
             kind: 'medicine',
             ocr,
             qr: null,
             error: ocr.status === OCR_STATUS.OK ? null : (OCR_STATUS_MESSAGES[ocr.status] || null),
           };
-        } catch {
+        } catch (error) {
+          console.error('[verification:preview] OCR failed', {
+            requestId: req.id,
+            durationMs: Date.now() - imageStartedAt,
+            message: error?.message || 'unknown error',
+          });
           return { kind: 'medicine', ocr: null, qr: null, error: 'This image could not be processed.' };
         }
       }),
@@ -124,10 +146,26 @@ export const previewVerification = asyncHandler(async (req, res) => {
       error,
     }));
 
+    console.info('[verification:preview] completed', {
+      requestId: req.id,
+      durationMs: Date.now() - startedAt,
+      extractedFields: Object.values(fields).filter(Boolean).length,
+      omittedMedicineImages: omittedMedicineCount,
+    });
+
     return res.status(200).json({
       success: true,
       requestId: req.id,
-      extracted: { fields, fieldStatus, qrCodes, images },
+      extracted: {
+        fields,
+        fieldStatus,
+        qrCodes,
+        images,
+        ...(omittedMedicineCount > 0 ? {
+          notice: `Preview extracted the first 2 medicine photos to keep the request responsive. ${omittedMedicineCount} additional photo(s) will be processed during final verification.`,
+          omittedMedicineImages: omittedMedicineCount,
+        } : {}),
+      },
     });
   } finally {
     releaseSlot();
