@@ -77,7 +77,7 @@ export const previewVerification = asyncHandler(async (req, res) => {
     // can take several per-image timeouts back-to-back. Preview the first two
     // medicine photos; the final verification pipeline still processes all
     // submitted photos and must be used for the actual risk decision.
-    const previewMedicineFiles = medicineFiles.slice(0, 2);
+    const previewMedicineFiles = medicineFiles.slice(0, 1);
     const omittedMedicineCount = medicineFiles.length - previewMedicineFiles.length;
     const startedAt = Date.now();
     console.info('[verification:preview] started', {
@@ -162,7 +162,7 @@ export const previewVerification = asyncHandler(async (req, res) => {
         qrCodes,
         images,
         ...(omittedMedicineCount > 0 ? {
-          notice: `Preview extracted the first 2 medicine photos to keep the request responsive. ${omittedMedicineCount} additional photo(s) will be processed during final verification.`,
+          notice: `Preview extracted the first medicine photo to keep the request responsive. ${omittedMedicineCount} additional photo(s) will be processed during final verification.`,
           omittedMedicineImages: omittedMedicineCount,
         } : {}),
       },
